@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fs,
     io::{self, Write, stdin, stdout},
 };
 use termion::{event::Key, input::TermRead, raw::IntoRawMode};
@@ -20,6 +21,7 @@ struct TermSize {
 
 #[derive(Debug)]
 struct OpenFile {
+    path: String,
     lines: Vec<String>,
     line_no: usize,
     cursor: CursorPos,
@@ -69,12 +71,17 @@ impl TextEditor {
 
     fn open_file(&mut self, path: String) -> io::Result<()> {
         let content = std::fs::read_to_string(&path)?;
-        let file = OpenFile {
-            lines: content.lines().map(String::from).collect(),
+        let mut file = OpenFile {
+            path: path.clone(),
+            lines: content.split('\n').map(String::from).collect(),
             line_no: 1,
             cursor: CursorPos { row: 1, col: 6 },
             modified: false,
         };
+
+        if file.lines.len() == 0 {
+            file.lines.push(String::from(""));
+        }
 
         self.open_files.insert(path.clone(), file);
         self.current_file = Some(path);
@@ -152,7 +159,7 @@ impl TextEditor {
                 Key::Esc => break,
                 Key::Char('\n') => Self::handle_enter(file),
                 Key::Char(c) => Self::handle_char_input(file, term_size, c),
-                Key::Ctrl('s') => file.modified = false,
+                Key::Ctrl('s') => Self::save_file(file)?,
                 Key::Delete => Self::handle_delete(file),
                 Key::Backspace => Self::handle_backspace(file),
                 Key::Left => Self::move_left(file),
@@ -176,6 +183,8 @@ impl TextEditor {
     }
 
     fn handle_enter(file: &mut OpenFile) {
+        file.modified = true;
+
         let current_line = &mut file.lines[file.line_no + file.cursor.row as usize - 2];
         let remainder = current_line.split_off(file.cursor.col as usize - 6);
 
@@ -194,18 +203,25 @@ impl TextEditor {
         Self::move_right(file, term_size);
     }
 
+    fn save_file(file: &mut OpenFile) -> std::io::Result<()> {
+        let contents = file.lines.join("\n");
+        fs::write(&file.path, contents)?;
+
+        file.modified = false;
+        Ok(())
+    }
+
     fn handle_delete(file: &mut OpenFile) {
         file.modified = true;
 
         let cursor = &file.cursor;
-        // TODO: check for end of file
-        if cursor.col as usize == file.lines[file.line_no + cursor.row as usize - 2].len() + 6
-            && cursor.row as usize != file.lines.len()
-        {
-            let row_index = file.line_no + cursor.row as usize - 2;
-            let combined_line = file.lines[row_index].clone() + &file.lines[row_index + 1];
-            file.lines[row_index] = combined_line;
-            file.lines.remove(row_index + 1);
+        if cursor.col as usize == file.lines[file.line_no + cursor.row as usize - 2].len() + 6 {
+            if file.line_no + cursor.row as usize - 1 != file.lines.len() {
+                let row_index = file.line_no + cursor.row as usize - 2;
+                let combined_line = file.lines[row_index].clone() + &file.lines[row_index + 1];
+                file.lines[row_index] = combined_line;
+                file.lines.remove(row_index + 1);
+            }
         } else {
             file.lines[file.line_no + cursor.row as usize - 2].remove(cursor.col as usize - 6);
         }
