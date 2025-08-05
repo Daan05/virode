@@ -78,7 +78,10 @@ impl TextEditor {
             path: path.clone(),
             lines: content.split('\n').map(String::from).collect(),
             line_no: 1,
-            cursor: CursorPos { row: 1, col: GUTTER_WIDTH as u16 },
+            cursor: CursorPos {
+                row: 1,
+                col: GUTTER_WIDTH as u16,
+            },
             modified: false,
         };
 
@@ -134,11 +137,11 @@ impl TextEditor {
             // render status bar
             write!(
                 stdout,
-                "{}status bar...\tcursor.col: {}, cursor.row: {}, line_no: {}\t{}",
+                "{}{} | col: {}, row: {} | {}",
                 termion::cursor::Goto(1, self.term_size.height),
-                file.cursor.col,
+                file.path,
+                file.cursor.col - GUTTER_WIDTH as u16 + 1,
                 file.cursor.row,
-                file.line_no,
                 if file.modified { "Modified" } else { "Saved" }
             )?;
 
@@ -160,7 +163,7 @@ impl TextEditor {
 
             match key {
                 Key::Esc => break,
-                Key::Char('\n') => Self::handle_enter(file),
+                Key::Char('\n') => Self::handle_enter(file, term_size),
                 Key::Char(c) => Self::handle_char_input(file, term_size, c),
                 Key::Ctrl('s') => Self::save_file(file)?,
                 Key::Delete => Self::handle_delete(file),
@@ -169,7 +172,7 @@ impl TextEditor {
                 Key::Right => Self::move_right(file, term_size),
                 Key::Up => Self::move_up(file),
                 Key::Down => Self::move_down(file, term_size),
-                _ => (), // Ignore other keys
+                _ => (),
             }
 
             stdout.flush()?;
@@ -185,7 +188,7 @@ impl TextEditor {
         Ok(())
     }
 
-    fn handle_enter(file: &mut OpenFile) {
+    fn handle_enter(file: &mut OpenFile, term_size: TermSize) {
         file.modified = true;
 
         let current_line = &mut file.lines[file.line_no + file.cursor.row as usize - 2];
@@ -194,15 +197,23 @@ impl TextEditor {
         file.lines
             .insert(file.line_no + file.cursor.row as usize - 1, remainder);
 
-        file.cursor.row += 1;
-        file.cursor.col = GUTTER_WIDTH as u16;
+        if term_size.height > file.cursor.row + 1
+            && file.lines.len() > file.line_no + file.cursor.row as usize - 1
+        {
+            file.cursor.row += 1;
+            file.cursor.col = GUTTER_WIDTH as u16;
+        } else {
+            Self::scroll_down(file, term_size);
+            file.cursor.col = GUTTER_WIDTH as u16;
+        }
     }
 
     fn handle_char_input(file: &mut OpenFile, term_size: TermSize, c: char) {
         file.modified = true;
 
         let cursor = &file.cursor;
-        file.lines[file.line_no + cursor.row as usize - 2].insert(cursor.col as usize - GUTTER_WIDTH, c);
+        file.lines[file.line_no + cursor.row as usize - 2]
+            .insert(cursor.col as usize - GUTTER_WIDTH, c);
         Self::move_right(file, term_size);
     }
 
@@ -218,7 +229,9 @@ impl TextEditor {
         file.modified = true;
 
         let cursor = &file.cursor;
-        if cursor.col as usize == file.lines[file.line_no + cursor.row as usize - 2].len() + GUTTER_WIDTH {
+        if cursor.col as usize
+            == file.lines[file.line_no + cursor.row as usize - 2].len() + GUTTER_WIDTH
+        {
             if file.line_no + cursor.row as usize - 1 != file.lines.len() {
                 let row_index = file.line_no + cursor.row as usize - 2;
                 let combined_line = file.lines[row_index].clone() + &file.lines[row_index + 1];
@@ -226,7 +239,8 @@ impl TextEditor {
                 file.lines.remove(row_index + 1);
             }
         } else {
-            file.lines[file.line_no + cursor.row as usize - 2].remove(cursor.col as usize - GUTTER_WIDTH);
+            file.lines[file.line_no + cursor.row as usize - 2]
+                .remove(cursor.col as usize - GUTTER_WIDTH);
         }
     }
 
