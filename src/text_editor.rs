@@ -73,7 +73,7 @@ impl TextEditor {
         let content = std::fs::read_to_string(&path)?;
         let mut file = OpenFile {
             path: path.clone(),
-            lines: content.lines().map(String::from).collect(),
+            lines: content.split('\n').map(String::from).collect(),
             line_no: 1,
             cursor: CursorPos { row: 1, col: 6 },
             modified: false,
@@ -183,6 +183,8 @@ impl TextEditor {
     }
 
     fn handle_enter(file: &mut OpenFile) {
+        file.modified = true;
+
         let current_line = &mut file.lines[file.line_no + file.cursor.row as usize - 2];
         let remainder = current_line.split_off(file.cursor.col as usize - 6);
 
