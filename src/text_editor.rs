@@ -7,6 +7,8 @@ use termion::{event::Key, input::TermRead, raw::IntoRawMode};
 
 use crate::arguments::ArgsConfig;
 
+const GUTTER_WIDTH: usize = 6;
+
 #[derive(Debug)]
 struct CursorPos {
     row: u16,
@@ -19,6 +21,7 @@ struct TermSize {
     height: u16,
 }
 
+// rename to FileBuffer???
 #[derive(Debug)]
 struct OpenFile {
     path: String,
@@ -37,7 +40,7 @@ impl OpenFile {
                 "\r{:>4}|{:.len$}",
                 idx,
                 self.lines[idx - 1],
-                len = term_size.width as usize - 6
+                len = term_size.width as usize - GUTTER_WIDTH
             );
         }
     }
@@ -75,7 +78,7 @@ impl TextEditor {
             path: path.clone(),
             lines: content.split('\n').map(String::from).collect(),
             line_no: 1,
-            cursor: CursorPos { row: 1, col: 6 },
+            cursor: CursorPos { row: 1, col: GUTTER_WIDTH as u16 },
             modified: false,
         };
 
@@ -186,20 +189,20 @@ impl TextEditor {
         file.modified = true;
 
         let current_line = &mut file.lines[file.line_no + file.cursor.row as usize - 2];
-        let remainder = current_line.split_off(file.cursor.col as usize - 6);
+        let remainder = current_line.split_off(file.cursor.col as usize - GUTTER_WIDTH);
 
         file.lines
             .insert(file.line_no + file.cursor.row as usize - 1, remainder);
 
         file.cursor.row += 1;
-        file.cursor.col = 6;
+        file.cursor.col = GUTTER_WIDTH as u16;
     }
 
     fn handle_char_input(file: &mut OpenFile, term_size: TermSize, c: char) {
         file.modified = true;
 
         let cursor = &file.cursor;
-        file.lines[file.line_no + cursor.row as usize - 2].insert(cursor.col as usize - 6, c);
+        file.lines[file.line_no + cursor.row as usize - 2].insert(cursor.col as usize - GUTTER_WIDTH, c);
         Self::move_right(file, term_size);
     }
 
@@ -215,7 +218,7 @@ impl TextEditor {
         file.modified = true;
 
         let cursor = &file.cursor;
-        if cursor.col as usize == file.lines[file.line_no + cursor.row as usize - 2].len() + 6 {
+        if cursor.col as usize == file.lines[file.line_no + cursor.row as usize - 2].len() + GUTTER_WIDTH {
             if file.line_no + cursor.row as usize - 1 != file.lines.len() {
                 let row_index = file.line_no + cursor.row as usize - 2;
                 let combined_line = file.lines[row_index].clone() + &file.lines[row_index + 1];
@@ -223,7 +226,7 @@ impl TextEditor {
                 file.lines.remove(row_index + 1);
             }
         } else {
-            file.lines[file.line_no + cursor.row as usize - 2].remove(cursor.col as usize - 6);
+            file.lines[file.line_no + cursor.row as usize - 2].remove(cursor.col as usize - GUTTER_WIDTH);
         }
     }
 
@@ -231,10 +234,10 @@ impl TextEditor {
         file.modified = true;
 
         let cursor = &file.cursor;
-        if cursor.col == 6 {
+        if cursor.col == GUTTER_WIDTH as u16 {
             if cursor.row != 1 {
                 let row_index = file.line_no + cursor.row as usize - 3;
-                let new_cursor_x = file.lines[row_index].len() + 6;
+                let new_cursor_x = file.lines[row_index].len() + GUTTER_WIDTH;
                 let combined_line = file.lines[row_index].clone() + &file.lines[row_index + 1];
                 file.lines[row_index] = combined_line;
                 file.lines.remove(row_index + 1);
@@ -249,7 +252,7 @@ impl TextEditor {
     }
 
     fn move_left(file: &mut OpenFile) {
-        if file.cursor.col > 6 {
+        if file.cursor.col > GUTTER_WIDTH as u16 {
             file.cursor.col -= 1;
         }
     }
@@ -258,7 +261,7 @@ impl TextEditor {
         let cursor = &file.cursor;
         let line_len = file.lines[file.line_no + cursor.row as usize - 2].len();
 
-        if term_size.width > cursor.col && line_len + 6 > cursor.col as usize {
+        if term_size.width > cursor.col && line_len + GUTTER_WIDTH > cursor.col as usize {
             file.cursor.col += 1;
         }
     }
@@ -270,8 +273,8 @@ impl TextEditor {
             let cursor = &file.cursor;
             let line_len = file.lines[file.line_no + cursor.row as usize - 2].len();
 
-            if line_len + 6 < cursor.col as usize {
-                file.cursor.col = line_len as u16 + 6;
+            if line_len + GUTTER_WIDTH < cursor.col as usize {
+                file.cursor.col = (line_len + GUTTER_WIDTH) as u16;
             }
         } else {
             Self::scroll_up(file);
@@ -285,8 +288,8 @@ impl TextEditor {
             file.cursor.row += 1;
 
             let line_len = file.lines[file.line_no + file.cursor.row as usize - 2].len();
-            if line_len + 6 < file.cursor.col as usize {
-                file.cursor.col = line_len as u16 + 6;
+            if line_len + GUTTER_WIDTH < file.cursor.col as usize {
+                file.cursor.col = (line_len + GUTTER_WIDTH) as u16;
             }
         } else {
             Self::scroll_down(file, term_size);
