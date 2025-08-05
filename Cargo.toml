@@ -1,5 +1,5 @@
 [package]
-name = "cli_text_editor"
+name = "virode"
 version = "0.1.0"
 edition = "2024"
 
