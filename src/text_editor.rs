@@ -18,29 +18,28 @@ pub struct TextEditor {
 impl TextEditor {
     pub fn new(config: ArgsConfig) -> io::Result<Self> {
         let terminal_size = termion::terminal_size()?;
-        let mut editor = TextEditor {
+        let mut open_files = HashMap::new();
+
+        TextEditor::open_file(config.file_name.clone(), &mut open_files)?;
+
+        Ok(TextEditor {
             term_size: TermSize {
                 width: terminal_size.0,
                 height: terminal_size.1,
             },
-            open_files: HashMap::new(),
-            current_file: String::from(""),
-        };
-
-        editor.open_file(config.file_name)?;
-
-        Ok(editor)
+            open_files: open_files,
+            current_file: config.file_name,
+        })
     }
 
-    fn open_file(&mut self, path: String) -> io::Result<()> {
+    fn open_file(path: String, open_files: &mut HashMap<String, OpenFile>) -> io::Result<()> {
         let content = std::fs::read_to_string(&path)?;
         let file = OpenFile::new(
             path.clone(),
             content.split('\n').map(String::from).collect(),
         );
 
-        self.open_files.insert(path.clone(), file);
-        self.current_file = path;
+        open_files.insert(path, file);
 
         Ok(())
     }

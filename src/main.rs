@@ -1,8 +1,8 @@
 use std::env;
 
 mod arguments;
-mod text_editor;
 mod open_file;
+mod text_editor;
 
 use arguments::ArgsConfig;
 use text_editor::TextEditor;
