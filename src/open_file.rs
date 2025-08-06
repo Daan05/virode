@@ -1,4 +1,9 @@
-use std::fs;
+use std::{
+    fs,
+    io::{self, Stdout, Write},
+};
+
+use termion::raw::RawTerminal;
 
 const GUTTER_WIDTH: usize = 6;
 
@@ -44,33 +49,36 @@ impl OpenFile {
         file
     }
 
-    pub fn render(&self, term_size: TermSize) {
+    pub fn render(&self, term_size: TermSize, stdout: &mut RawTerminal<Stdout>) -> io::Result<()> {
         for idx in
             self.line_no..(self.line_no + term_size.height as usize - 1).min(self.lines.len() + 1)
         {
-            println!(
-                "\r{:>4}|{:.len$}",
+            write!(
+                stdout,
+                "{:>4}|{:.len$}\r\n",
                 idx,
                 self.lines[idx - 1],
                 len = term_size.width as usize - GUTTER_WIDTH
-            );
+            )?;
         }
 
-        print!(
+        write!(
+            stdout,
             "{}{} | col: {}, row: {} | {}",
             termion::cursor::Goto(1, term_size.height),
             self.path,
             self.cursor.col - GUTTER_WIDTH as u16 + 1,
             self.cursor.row,
             if self.modified { "Modified" } else { "Saved" }
-        );
+        )
     }
 
-    pub fn set_cursor(&self) {
-        print!(
+    pub fn set_cursor(&self, stdout: &mut RawTerminal<Stdout>) -> io::Result<()> {
+        write!(
+            stdout,
             "{}",
             termion::cursor::Goto(self.cursor.col, self.cursor.row)
-        );
+        )
     }
 
     pub fn handle_enter(&mut self, term_size: TermSize) {

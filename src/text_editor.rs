@@ -5,7 +5,6 @@ use std::{
 use termion::{event::Key, input::TermRead, raw::IntoRawMode};
 
 use crate::arguments::ArgsConfig;
-
 use crate::open_file::{OpenFile, TermSize};
 
 #[derive(Debug)]
@@ -47,16 +46,6 @@ impl TextEditor {
     pub fn run(&mut self) -> io::Result<()> {
         let stdin = stdin();
         let mut stdout = stdout().into_raw_mode()?;
-
-        write!(
-            stdout,
-            "{}{}ESC to exit. Type stuff, use alt, and so on.\n\r",
-            termion::clear::All,
-            termion::cursor::Goto(1, 1)
-        )?;
-
-        stdout.flush()?;
-
         let mut keys = stdin.keys();
 
         // run loop
@@ -72,9 +61,8 @@ impl TextEditor {
             )?;
 
             // render file
-            file.render(self.term_size);
-            file.set_cursor();
-
+            file.render(self.term_size, &mut stdout)?;
+            file.set_cursor(&mut stdout)?;
             stdout.flush()?;
 
             // Handle input
