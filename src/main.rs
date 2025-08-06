@@ -2,6 +2,7 @@ use std::env;
 
 mod arguments;
 mod text_editor;
+mod open_file;
 
 use arguments::ArgsConfig;
 use text_editor::TextEditor;
