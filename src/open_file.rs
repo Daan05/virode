@@ -30,8 +30,12 @@ pub struct OpenFile {
 }
 
 impl OpenFile {
-    pub fn new(path: String, lines: Vec<String>) -> OpenFile {
-        let mut file = OpenFile {
+    pub fn new(path: String, mut lines: Vec<String>) -> OpenFile {
+        if lines.len() == 0 {
+            lines.push(String::from(""));
+        }
+
+        OpenFile {
             path: path,
             lines: lines,
             line_no: 1,
@@ -40,13 +44,7 @@ impl OpenFile {
                 row: 1,
             },
             modified: false,
-        };
-
-        if file.lines.len() == 0 {
-            file.lines.push(String::from(""));
         }
-
-        file
     }
 
     pub fn render(&self, term_size: TermSize, stdout: &mut RawTerminal<Stdout>) -> io::Result<()> {
