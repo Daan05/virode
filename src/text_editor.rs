@@ -123,9 +123,9 @@ impl TextEditor {
         match self.mode {
             EditorMode::Normal => self.handle_input_normal_mode(key)?,
             EditorMode::Insert => self.handle_input_insert_mode(key)?,
-            EditorMode::Visual => (),
-            EditorMode::VLine => (),
-            EditorMode::Command => (),
+            EditorMode::Visual => self.handle_input_visual_mode(key),
+            EditorMode::VLine => self.handle_input_vline_mode(key),
+            EditorMode::Command => self.handle_input_command_mode(key),
         };
 
         Ok(())
@@ -181,9 +181,15 @@ impl TextEditor {
         Ok(())
     }
 
-    fn handle_input_visual_mode() {}
+    fn handle_input_visual_mode(&mut self, _key: Key) {
+        todo!();
+    }
 
-    fn handle_input_vline_mode() {}
+    fn handle_input_vline_mode(&mut self, _key: Key) {
+        todo!();
+    }
 
-    fn handle_input_command_mode() {}
+    fn handle_input_command_mode(&mut self, _key: Key) {
+        todo!();
+    }
 }
