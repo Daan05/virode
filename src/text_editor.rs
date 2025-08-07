@@ -131,6 +131,16 @@ impl TextEditor {
                 file.move_right(self.term_size, false);
                 self.enter_insert_mode()?;
             }
+            Key::Ctrl('u') => {
+                for _ in 0..self.term_size.height / 2 {
+                    file.scroll_up();
+                }
+            }
+            Key::Ctrl('d') => {
+                for _ in 0..self.term_size.height / 2 {
+                    file.scroll_down(self.term_size);
+                }
+            }
             Key::Left | Key::Char('h') => file.move_left(),
             Key::Right | Key::Char('l') => file.move_right(self.term_size, true),
             Key::Up | Key::Char('k') => file.move_up(),

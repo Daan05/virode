@@ -211,8 +211,9 @@ impl OpenFile {
         }
     }
 
-    pub fn scroll_down(&mut self, _term_size: TermSize) {
-        if self.lines.len() > self.line_no + self.cursor.row as usize - 1 {
+    pub fn scroll_down(&mut self, term_size: TermSize) {
+        if self.lines.len() > self.line_no + self.cursor.row as usize + term_size.height as usize - 2
+        {
             self.line_no += 1;
         }
     }
