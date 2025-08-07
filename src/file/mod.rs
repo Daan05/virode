@@ -247,7 +247,6 @@ impl OpenFile {
         self.undo_stack.push(Snapshot {
             content: self.lines.clone(),
             cursor: self.cursor,
-            timestamp: Instant::now(),
         });
         self.redo_stack.clear();
         self.last_edit_time = Instant::now();
@@ -258,7 +257,6 @@ impl OpenFile {
             self.redo_stack.push(Snapshot {
                 content: self.lines.clone(),
                 cursor: self.cursor,
-                timestamp: Instant::now(),
             });
 
             self.lines = snapshot.content;
@@ -271,7 +269,6 @@ impl OpenFile {
             self.undo_stack.push(Snapshot {
                 content: self.lines.clone(),
                 cursor: self.cursor,
-                timestamp: Instant::now(),
             });
 
             self.lines = snapshot.content;
