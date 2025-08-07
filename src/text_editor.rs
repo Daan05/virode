@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fs,
     io::{self, Stdin, Stdout, Write, stdin, stdout},
 };
 use termion::{
@@ -9,7 +10,7 @@ use termion::{
 };
 
 use crate::arguments::ArgsConfig;
-use crate::open_file::{OpenFile, TermSize};
+use crate::file::{OpenFile, TermSize};
 
 enum EditorMode {
     Normal,
@@ -63,7 +64,7 @@ impl TextEditor {
     }
 
     fn open_file(path: String, open_files: &mut HashMap<String, OpenFile>) -> io::Result<()> {
-        let content = std::fs::read_to_string(&path)?;
+        let content = fs::read_to_string(&path)?;
         let file = OpenFile::new(
             path.clone(),
             content.split('\n').map(String::from).collect(),
@@ -132,6 +133,8 @@ impl TextEditor {
                 self.enter_insert_mode()?;
             }
             Key::Char('x') => file.delete_char_at_cursor_pos(),
+            Key::Char('u') => file.undo(),
+            Key::Ctrl('r') => file.redo(),
             Key::Ctrl('u') => {
                 for _ in 0..self.term_size.height / 2 {
                     file.scroll_up();

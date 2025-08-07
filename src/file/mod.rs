@@ -1,24 +1,16 @@
+pub mod undo;
+pub use undo::{CursorPos, Snapshot, TermSize};
+
 use std::{
     fs,
     io::{self, Stdout, Write},
+    time::{Duration, Instant},
     usize,
 };
 
 use termion::raw::RawTerminal;
 
 const GUTTER_WIDTH: usize = 6;
-
-#[derive(Debug, Clone, Copy)]
-pub struct CursorPos {
-    row: u16,
-    col: u16,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct TermSize {
-    pub width: u16,
-    pub height: u16,
-}
 
 // rename to FileBuffer???
 #[derive(Debug)]
@@ -28,6 +20,9 @@ pub struct OpenFile {
     line_no: usize,
     cursor: CursorPos,
     modified: bool,
+    undo_stack: Vec<Snapshot>,
+    redo_stack: Vec<Snapshot>,
+    last_edit_time: Instant,
 }
 
 impl OpenFile {
@@ -45,6 +40,9 @@ impl OpenFile {
                 row: 1,
             },
             modified: false,
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            last_edit_time: Instant::now(),
         }
     }
 
@@ -93,6 +91,7 @@ impl OpenFile {
     }
 
     pub fn handle_enter(&mut self, term_size: TermSize) {
+        self.take_snapshot();
         self.modified = true;
 
         let current_line = &mut self.lines[self.line_no + self.cursor.row as usize - 2];
@@ -113,6 +112,7 @@ impl OpenFile {
     }
 
     pub fn handle_char_input(&mut self, term_size: TermSize, c: char) {
+        self.take_snapshot();
         self.modified = true;
 
         let cursor = &self.cursor;
@@ -133,6 +133,7 @@ impl OpenFile {
     }
 
     pub fn handle_delete(&mut self) {
+        self.take_snapshot();
         self.modified = true;
 
         let cursor = &self.cursor;
@@ -149,6 +150,7 @@ impl OpenFile {
     }
 
     pub fn handle_backspace(&mut self) {
+        self.take_snapshot();
         self.modified = true;
 
         let cursor = &self.cursor;
@@ -211,9 +213,7 @@ impl OpenFile {
     }
 
     pub fn scroll_down(&mut self, term_size: TermSize) {
-        if self.lines.len()
-            > self.line_no + self.cursor.row as usize + term_size.height as usize - 2
-        {
+        if self.lines.len() > self.line_no + term_size.height as usize as usize - 1 {
             self.line_no += 1;
         }
     }
@@ -223,6 +223,9 @@ impl OpenFile {
     }
 
     pub fn delete_char_at_cursor_pos(&mut self) {
+        self.take_snapshot();
+        self.modified = true;
+
         let line = &mut self.lines[self.line_no + self.cursor.row as usize - 2];
         if line.len() == 0 {
             return;
@@ -232,6 +235,47 @@ impl OpenFile {
 
         if self.cursor.col as usize - GUTTER_WIDTH > line.len() {
             self.cursor.col -= 1;
+        }
+    }
+
+    fn take_snapshot(&mut self) {
+        if self.last_edit_time.elapsed() < Duration::from_millis(500) && !self.undo_stack.is_empty()
+        {
+            return;
+        }
+
+        self.undo_stack.push(Snapshot {
+            content: self.lines.clone(),
+            cursor: self.cursor,
+            timestamp: Instant::now(),
+        });
+        self.redo_stack.clear();
+        self.last_edit_time = Instant::now();
+    }
+
+    pub fn undo(&mut self) {
+        if let Some(snapshot) = self.undo_stack.pop() {
+            self.redo_stack.push(Snapshot {
+                content: self.lines.clone(),
+                cursor: self.cursor,
+                timestamp: Instant::now(),
+            });
+
+            self.lines = snapshot.content;
+            self.cursor = snapshot.cursor;
+        }
+    }
+
+    pub fn redo(&mut self) {
+        if let Some(snapshot) = self.redo_stack.pop() {
+            self.undo_stack.push(Snapshot {
+                content: self.lines.clone(),
+                cursor: self.cursor,
+                timestamp: Instant::now(),
+            });
+
+            self.lines = snapshot.content;
+            self.cursor = snapshot.cursor;
         }
     }
 }

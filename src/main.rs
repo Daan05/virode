@@ -1,7 +1,7 @@
 use std::env;
 
 mod arguments;
-mod open_file;
+mod file;
 mod text_editor;
 
 use arguments::ArgsConfig;
