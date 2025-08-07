@@ -38,6 +38,7 @@ pub struct TextEditor {
     current_file: String,
     mode: EditorMode,
     stdout: RawTerminal<Stdout>,
+    keys: Keys<Stdin>,
 }
 
 impl TextEditor {
@@ -57,6 +58,7 @@ impl TextEditor {
             current_file: config.file_name,
             mode: EditorMode::Normal,
             stdout: stdout().into_raw_mode()?,
+            keys: stdin().keys(),
         })
     }
 
@@ -73,24 +75,12 @@ impl TextEditor {
     }
 
     pub fn run(&mut self) -> io::Result<()> {
-        let stdin = stdin();
-        let mut keys = stdin.keys();
-
         while !self.quit {
-            // clear terminal
             self.clear_terminal()?;
-
-            // render file
             self.render_file()?;
-
-            // Handle input
-            self.handle_input(&mut keys)?;
+            self.handle_input()?;
         }
-
-        // clear terminal
-        self.clear_terminal()?;
-
-        Ok(())
+        self.clear_terminal()
     }
 
     fn clear_terminal(&mut self) -> io::Result<()> {
@@ -98,7 +88,7 @@ impl TextEditor {
             self.stdout,
             "{}{}",
             termion::clear::All,
-            termion::cursor::Goto(1, 1)
+            termion::cursor::Goto(1, 1),
         )
     }
 
@@ -113,9 +103,9 @@ impl TextEditor {
         Ok(())
     }
 
-    fn handle_input(&mut self, keys: &mut Keys<Stdin>) -> io::Result<()> {
+    fn handle_input(&mut self) -> io::Result<()> {
         let key = loop {
-            if let Some(result) = keys.next() {
+            if let Some(result) = self.keys.next() {
                 break result?;
             }
         };
@@ -136,14 +126,10 @@ impl TextEditor {
 
         match key {
             Key::Esc => self.quit = true,
-            Key::Char('i') => {
-                self.mode = EditorMode::Insert;
-                write!(self.stdout, "{}", termion::cursor::SteadyBar)?;
-            }
+            Key::Char('i') => self.enter_insert_mode()?,
             Key::Char('a') => {
-                self.mode = EditorMode::Insert;
                 file.move_right(self.term_size, false);
-                write!(self.stdout, "{}", termion::cursor::SteadyBar)?;
+                self.enter_insert_mode()?;
             }
             Key::Left | Key::Char('h') => file.move_left(),
             Key::Right | Key::Char('l') => file.move_right(self.term_size, true),
@@ -159,15 +145,13 @@ impl TextEditor {
         let file = self.open_files.get_mut(&self.current_file).unwrap();
 
         match key {
-            Key::Esc => {
-                self.mode = EditorMode::Normal;
-                write!(self.stdout, "{}", termion::cursor::SteadyBlock)?;
-            }
+            Key::Esc => self.exit_insert_mode()?,
             Key::Char('\n') => file.handle_enter(self.term_size),
             Key::Char(c) => file.handle_char_input(self.term_size, c),
             Key::Ctrl('s') => {
                 file.save_file()?;
-                self.mode = EditorMode::Normal
+                self.mode = EditorMode::Normal;
+                write!(self.stdout, "{}", termion::cursor::SteadyBlock)?;
             }
             Key::Delete => file.handle_delete(),
             Key::Backspace => file.handle_backspace(),
@@ -191,5 +175,18 @@ impl TextEditor {
 
     fn handle_input_command_mode(&mut self, _key: Key) {
         todo!();
+    }
+
+    fn enter_insert_mode(&mut self) -> io::Result<()> {
+        self.mode = EditorMode::Insert;
+        write!(self.stdout, "{}", termion::cursor::SteadyBar)
+    }
+
+    fn exit_insert_mode(&mut self) -> io::Result<()> {
+        let file = self.open_files.get_mut(&self.current_file).unwrap();
+        file.move_left();
+
+        self.mode = EditorMode::Normal;
+        write!(self.stdout, "{}", termion::cursor::SteadyBlock)
     }
 }

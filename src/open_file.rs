@@ -1,6 +1,7 @@
 use std::{
     fs,
     io::{self, Stdout, Write},
+    usize,
 };
 
 use termion::raw::RawTerminal;
@@ -65,12 +66,13 @@ impl OpenFile {
             )?;
         }
 
+        let line_len = self.lines[self.line_no + self.cursor.row as usize - 2].len();
         write!(
             stdout,
             "{}{} | col: {}, row: {} | {} | {} ",
             termion::cursor::Goto(1, term_size.height),
             self.path,
-            self.cursor.col - GUTTER_WIDTH as u16 + 1,
+            self.cursor.col.min((line_len + GUTTER_WIDTH) as u16) - GUTTER_WIDTH as u16 + 1,
             self.cursor.row,
             if self.modified { "Modified" } else { "Saved" },
             mode
@@ -78,10 +80,15 @@ impl OpenFile {
     }
 
     pub fn set_cursor(&self, stdout: &mut RawTerminal<Stdout>) -> io::Result<()> {
+        let line_len = self.lines[self.line_no + self.cursor.row as usize - 2].len();
+
         write!(
             stdout,
             "{}",
-            termion::cursor::Goto(self.cursor.col, self.cursor.row)
+            termion::cursor::Goto(
+                self.cursor.col.min((line_len + GUTTER_WIDTH) as u16),
+                self.cursor.row
+            )
         )
     }
 
@@ -109,9 +116,12 @@ impl OpenFile {
         self.modified = true;
 
         let cursor = &self.cursor;
-        self.lines[self.line_no + cursor.row as usize - 2]
-            .insert(cursor.col as usize - GUTTER_WIDTH, c);
-        Self::move_right(self, term_size, true);
+        let line_len = self.lines[self.line_no + self.cursor.row as usize - 2].len();
+        self.lines[self.line_no + cursor.row as usize - 2].insert(
+            self.cursor.col.min((line_len + GUTTER_WIDTH) as u16) as usize - GUTTER_WIDTH,
+            c,
+        );
+        self.move_right(term_size, false);
     }
 
     pub fn save_file(&mut self) -> std::io::Result<()> {
@@ -126,9 +136,7 @@ impl OpenFile {
         self.modified = true;
 
         let cursor = &self.cursor;
-        if cursor.col as usize
-            == self.lines[self.line_no + cursor.row as usize - 2].len() + GUTTER_WIDTH
-        {
+        if cursor.col as usize == self.get_line_len() + GUTTER_WIDTH {
             if self.line_no + cursor.row as usize - 1 != self.lines.len() {
                 let row_index = self.line_no + cursor.row as usize - 2;
                 let combined_line = self.lines[row_index].clone() + &self.lines[row_index + 1];
@@ -163,17 +171,17 @@ impl OpenFile {
     }
 
     pub fn move_left(&mut self) {
+        let line_len = self.lines[self.line_no + self.cursor.row as usize - 2].len();
+        self.cursor.col = self.cursor.col.min((line_len + GUTTER_WIDTH) as u16);
+
         if self.cursor.col > GUTTER_WIDTH as u16 {
             self.cursor.col -= 1;
         }
     }
 
     pub fn move_right(&mut self, term_size: TermSize, stop_sooner: bool) {
-        let cursor = &self.cursor;
-        let line_len = self.lines[self.line_no + cursor.row as usize - 2].len();
-
-        if term_size.width > cursor.col
-            && line_len + GUTTER_WIDTH > cursor.col as usize + stop_sooner as usize
+        if term_size.width > self.cursor.col
+            && self.get_line_len() + GUTTER_WIDTH > self.cursor.col as usize + stop_sooner as usize
         {
             self.cursor.col += 1;
         }
@@ -182,13 +190,6 @@ impl OpenFile {
     pub fn move_up(&mut self) {
         if self.cursor.row > 1 {
             self.cursor.row -= 1;
-
-            let cursor = &self.cursor;
-            let line_len = self.lines[self.line_no + cursor.row as usize - 2].len();
-
-            if line_len + GUTTER_WIDTH < cursor.col as usize {
-                self.cursor.col = (line_len + GUTTER_WIDTH) as u16;
-            }
         } else {
             self.scroll_up();
         }
@@ -199,11 +200,6 @@ impl OpenFile {
             && self.lines.len() > self.line_no + self.cursor.row as usize - 1
         {
             self.cursor.row += 1;
-
-            let line_len = self.lines[self.line_no + self.cursor.row as usize - 2].len();
-            if line_len + GUTTER_WIDTH < self.cursor.col as usize {
-                self.cursor.col = (line_len + GUTTER_WIDTH) as u16;
-            }
         } else {
             self.scroll_down(term_size);
         }
@@ -219,5 +215,9 @@ impl OpenFile {
         if self.lines.len() > self.line_no + self.cursor.row as usize - 1 {
             self.line_no += 1;
         }
+    }
+
+    fn get_line_len(&self) -> usize {
+        self.lines[self.line_no + self.cursor.row as usize - 2].len()
     }
 }
