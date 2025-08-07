@@ -47,7 +47,12 @@ impl OpenFile {
         }
     }
 
-    pub fn render(&self, term_size: TermSize, stdout: &mut RawTerminal<Stdout>) -> io::Result<()> {
+    pub fn render(
+        &self,
+        term_size: TermSize,
+        stdout: &mut RawTerminal<Stdout>,
+        mode: String,
+    ) -> io::Result<()> {
         for idx in
             self.line_no..(self.line_no + term_size.height as usize - 1).min(self.lines.len() + 1)
         {
@@ -62,12 +67,13 @@ impl OpenFile {
 
         write!(
             stdout,
-            "{}{} | col: {}, row: {} | {}",
+            "{}{} | col: {}, row: {} | {} | {} ",
             termion::cursor::Goto(1, term_size.height),
             self.path,
             self.cursor.col - GUTTER_WIDTH as u16 + 1,
             self.cursor.row,
-            if self.modified { "Modified" } else { "Saved" }
+            if self.modified { "Modified" } else { "Saved" },
+            mode
         )
     }
 
@@ -105,7 +111,7 @@ impl OpenFile {
         let cursor = &self.cursor;
         self.lines[self.line_no + cursor.row as usize - 2]
             .insert(cursor.col as usize - GUTTER_WIDTH, c);
-        Self::move_right(self, term_size);
+        Self::move_right(self, term_size, true);
     }
 
     pub fn save_file(&mut self) -> std::io::Result<()> {
@@ -162,11 +168,13 @@ impl OpenFile {
         }
     }
 
-    pub fn move_right(&mut self, term_size: TermSize) {
+    pub fn move_right(&mut self, term_size: TermSize, stop_sooner: bool) {
         let cursor = &self.cursor;
         let line_len = self.lines[self.line_no + cursor.row as usize - 2].len();
 
-        if term_size.width > cursor.col && line_len + GUTTER_WIDTH > cursor.col as usize {
+        if term_size.width > cursor.col
+            && line_len + GUTTER_WIDTH > cursor.col as usize + stop_sooner as usize
+        {
             self.cursor.col += 1;
         }
     }
