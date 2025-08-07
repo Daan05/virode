@@ -144,8 +144,7 @@ impl OpenFile {
                 self.lines.remove(row_index + 1);
             }
         } else {
-            self.lines[self.line_no + cursor.row as usize - 2]
-                .remove(cursor.col as usize - GUTTER_WIDTH);
+            self.delete_char_at_cursor_pos();
         }
     }
 
@@ -212,7 +211,8 @@ impl OpenFile {
     }
 
     pub fn scroll_down(&mut self, term_size: TermSize) {
-        if self.lines.len() > self.line_no + self.cursor.row as usize + term_size.height as usize - 2
+        if self.lines.len()
+            > self.line_no + self.cursor.row as usize + term_size.height as usize - 2
         {
             self.line_no += 1;
         }
@@ -220,5 +220,18 @@ impl OpenFile {
 
     fn get_line_len(&self) -> usize {
         self.lines[self.line_no + self.cursor.row as usize - 2].len()
+    }
+
+    pub fn delete_char_at_cursor_pos(&mut self) {
+        let line = &mut self.lines[self.line_no + self.cursor.row as usize - 2];
+        if line.len() == 0 {
+            return;
+        }
+
+        line.remove(self.cursor.col as usize - GUTTER_WIDTH);
+
+        if self.cursor.col as usize - GUTTER_WIDTH > line.len() {
+            self.cursor.col -= 1;
+        }
     }
 }

@@ -131,6 +131,7 @@ impl TextEditor {
                 file.move_right(self.term_size, false);
                 self.enter_insert_mode()?;
             }
+            Key::Char('x') => file.delete_char_at_cursor_pos(),
             Key::Ctrl('u') => {
                 for _ in 0..self.term_size.height / 2 {
                     file.scroll_up();
@@ -157,6 +158,12 @@ impl TextEditor {
         match key {
             Key::Esc => self.exit_insert_mode()?,
             Key::Char('\n') => file.handle_enter(self.term_size),
+            Key::Char('\t') => {
+                file.handle_char_input(self.term_size, ' ');
+                file.handle_char_input(self.term_size, ' ');
+                file.handle_char_input(self.term_size, ' ');
+                file.handle_char_input(self.term_size, ' ');
+            }
             Key::Char(c) => file.handle_char_input(self.term_size, c),
             Key::Ctrl('s') => {
                 file.save_file()?;
